@@ -25,33 +25,130 @@ final class Promise<Value> {
         self.state = .rejected(error: error)
     }
     
-    // Initialize with a set of functions which resolve the promise to a fulfilled or rejected state
+    /// Initialize with a set of functions which resolve the promise to a fulfilled or rejected state
+    /// @escaping note: If a closure is passed as an argument to a function and it is invoked after the function returns, the closure is escaping.
+    ///
+    /// - Parameter resolvers: a throwing function that takes two functions
+    /// It is called immediately in the init and will resolve with either fulfill or reject
+    /// - Parameter fulfill: function that fulfills the promise with the passed in value
+    /// - Parameter reject: function that rejects the promise with the passed in error
     init(resolvers: (_ fulfill: @escaping (Value) -> Void, _ reject: @escaping (Error) -> Void) throws -> Void) {
         /// Implement me
+        self.state = .pending
+        let fulfill: (Value) -> () = { (value: Value) in
+            self.updateState(state: .fulfilled(value: value))
+        }
+        let reject: (Error) -> () = { (error: Error) in
+            self.updateState(state: .rejected(error: error))
+        }
+        do {
+            try resolvers(fulfill, reject)
+        } catch {
+            self.updateState(state: .rejected(error: error))
+        }
     }
     
-    // After this promise fulfills, then do something else
-    // In functional programming terms this is a flatMap
-    // You take a function that takes a value and returns a promise with a new value.
-    // You take the value out of the promise box, map it and put it back into a promise box
+    /**
+     Example:
+     URLSession.GET(url1).then { data in
+     return CLLocationManager.promise()
+     }.then { location in
+     //…
+     }
+     **/
+    
+    /// After this promise fulfills, then do something else
+    /// In functional programming terms this is a flatMap
+    /// You take the value out of the promise box, map it and put it back into a promise box
+    /// This variant of `then` allows chaining promises, the promise returned by onFulfilled
+    /// is resolved before the promise returned by this closure resolves.
+    ///
+    /// - Parameter onFulfilled: a function that takes a Value and returns a promise with a NewValue
+    /// It is called when this promise resolves
+    /// - Returns: a promise with a NewValue
+    /// It resolves when the promise returned from onFulfilled resolves
     public func then<NewValue>(_ onFulfilled: @escaping (Value) throws -> Promise<NewValue>) -> Promise<NewValue> {
         /// Implement me
+        return Promise<NewValue>(resolvers: {
+            (fulfill: @escaping (NewValue) -> Void, reject: @escaping (Error) -> ()) in
+            self.addCallbacks(
+                onFulfilled: { (value: Value) in
+                    do {
+                        try onFulfilled(value)
+                            .then(fulfill, reject)
+                    } catch {
+                        reject(error)
+                    }
+                },
+                onRejected: reject
+            )
+        })
     }
+
+    /**
+     Example:
+     NSURLSession.GET(url).then { data -> Int in
+     //…
+     return data.length
+     }.then { length in
+     //…
+     }
+     **/
     
-    // After this promise fulfills, then do something else
-    // In functional programming terms this is a map
-    // You take a function that takes a value and returns a newValue and wrap the newValue in a promise
-    // Note that you can implement map using flatMap
+    /// After this promise fulfills, then do something else
+    /// In functional programming terms this is a map
+    /// Note that you can implement map using flatMap (the above then implementation)
+    ///
+    /// - Parameter onFulfilled: a function that takes a Value and returns a NewValue.
+    /// It gets called when this Promise is fulfilled
+    /// - Returns: a promise with a NewValue
+    /// It gets resolved with the NewValue returned from onFulfilled
+    
     public func then<NewValue>(_ onFulfilled: @escaping (Value) throws -> NewValue) -> Promise<NewValue> {
         /// Implement me
+        return then({ (value: Value) -> Promise<NewValue> in
+            do {
+                let newValue: NewValue = try onFulfilled(value)
+                return Promise<NewValue>(value: newValue)
+            } catch {
+                return Promise<NewValue>(error: error)
+            }
+        })
     }
     
+    /// After this promise fulfills, do something else
+    /// If the promise is rejected, do something different than when it's fulfilled
+    ///
+    /// - Parameter onFulfilled: a function that takes a Value and returns nothing
+    /// It gets called when this Promise is fulfilled
+    /// - Parameter onRejected: a function that takes an Error and returns nothing
+    /// It gets called when this Promise is rejected
+    /// - Returns: a promise with a value
     public func then(_ onFulfilled: @escaping (Value) -> (), _ onRejected: @escaping (Error) -> () = { _ in }) -> Promise<Value> {
         /// Implement me
+        return Promise(resolvers: { fulfill, reject in
+            self.addCallbacks(
+                onFulfilled: { (value: Value) in
+                    fulfill(value)
+                    onFulfilled(value)
+                }, onRejected: { (error: Error) in
+                    reject(error)
+                    onRejected(error)
+                }
+            )
+        })
     }
     
+    /// If the promise is rejected, calls the provided closure
+    /// Rejecting a promise cascades, this rejects all subsequent promises
+    /// That's why you typically put `catch` at the end of the chain
+    ///
+    /// - Parameter onRejected: a function that takes an error and does nothing
+    /// - Returns: `self`
     func `catch`(onRejected: @escaping (Error) -> Void) -> Promise<Value> {
         /// Implement me
+        return self
+            .then({ _ in }, onRejected)
     }
     
     private func updateState(state: State<Value>) {
@@ -148,4 +245,23 @@ extension State {
         return nil
     }
     
+}
+
+public enum SomeError : Error {
+    case unknown
+}
+
+func passItOn(_ value: String) -> Promise<String> {
+    return Promise(value: value)
+//    return Promise(error: SomeError.unknown)
+//    return Promise { fulfill, reject in fulfill(value) }
+}
+
+passItOn("it's snowing!").then { (value: String) -> Promise<String> in
+    print(value)
+    return passItOn(value)
+}.then { (value: String) -> () in
+    print(value.uppercased())
+}.catch { error in
+    print("boo! a wild error has appeared")
 }
