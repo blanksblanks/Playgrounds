@@ -71,17 +71,15 @@ final class Promise<Value> {
         /// Implement me
         return Promise<NewValue>(resolvers: {
             (fulfill: @escaping (NewValue) -> Void, reject: @escaping (Error) -> ()) in
-            self.addCallbacks(
-                onFulfilled: { (value: Value) in
-                    do {
-                        try onFulfilled(value)
-                            .then(fulfill, reject)
-                    } catch {
-                        reject(error)
-                    }
-                },
-                onRejected: reject
-            )
+            let doFulfill: (Value) -> Void = { (value: Value) in
+                do {
+                    try onFulfilled(value)
+                        .then(fulfill, reject)
+                } catch {
+                    reject(error)
+                }
+            }
+            self.addCallbacks(onFulfilled: doFulfill, onRejected: reject)
         })
     }
 
@@ -97,7 +95,7 @@ final class Promise<Value> {
     
     /// After this promise fulfills, then do something else
     /// In functional programming terms this is a map
-    /// Note that you can implement map using flatMap (the above then implementation)
+    /// Note that you can implement map using flatMap (the above `then` implementation)
     ///
     /// - Parameter onFulfilled: a function that takes a Value and returns a NewValue.
     /// It gets called when this Promise is fulfilled
@@ -127,15 +125,15 @@ final class Promise<Value> {
     public func then(_ onFulfilled: @escaping (Value) -> (), _ onRejected: @escaping (Error) -> () = { _ in }) -> Promise<Value> {
         /// Implement me
         return Promise(resolvers: { fulfill, reject in
-            self.addCallbacks(
-                onFulfilled: { (value: Value) in
-                    fulfill(value)
-                    onFulfilled(value)
-                }, onRejected: { (error: Error) in
-                    reject(error)
-                    onRejected(error)
-                }
-            )
+            let doFulfill: (Value) -> Void = { (value: Value) in
+                fulfill(value)
+                onFulfilled(value)
+            }
+            let doReject: (Error) -> Void = { (error: Error) in
+                reject(error)
+                onRejected(error)
+            }
+            self.addCallbacks(onFulfilled: doFulfill, onRejected: doReject)
         })
     }
     
