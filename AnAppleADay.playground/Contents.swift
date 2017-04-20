@@ -24,13 +24,8 @@ import Foundation
 /// 4/20/17
 
 func disemvowel(_ s: String) -> String {
-    func isVowel(s: String) -> Bool {
-        return !["a","e","i","o","u"].contains(s.lowercased())
-    }
-    return Array(s.characters)
-        .map{ String.init($0) }
-        .filter(isVowel)
-        .joined()
+    let vowels = Set("aeiouAEIOU".characters)
+    return String(s.characters.filter { !vowels.contains($0) })
 }
 
 expect(disemvowel("you are so weird!")).to(equal("y r s wrd!"))
