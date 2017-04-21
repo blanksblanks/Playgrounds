@@ -36,11 +36,10 @@ expect(disemvowel("you are so weird!")).to(equal("y r s wrd!"))
 /// This function assumes an ASCII string
 func hasUniqueCharacters(_ s: String) -> Bool {
     guard s.characters.count < 128 else { return false }
-    var seenCharacters = [Bool](repeatElement(false, count: 128))
-    for codeUnit in s.utf8 {
-        let index = Int(codeUnit)
-        guard seenCharacters[index] == false else { return false }
-        seenCharacters[index] = true
+    var seen = Set<Character>()
+    for character in s.characters {
+        guard !seen.contains(character) else { return false }
+        seen.insert(character)
     }
     return true
 }
