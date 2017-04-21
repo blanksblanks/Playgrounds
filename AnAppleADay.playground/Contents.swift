@@ -31,4 +31,19 @@ func disemvowel(_ s: String) -> String {
 expect(disemvowel("you are so weird!")).to(equal("y r s wrd!"))
 
 
+/// 4/21/17
 
+/// This function assumes an ASCII string
+func hasUniqueCharacters(_ s: String) -> Bool {
+    guard s.characters.count < 128 else { return false }
+    var seenCharacters = [Bool](repeatElement(false, count: 128))
+    for codeUnit in s.utf8 {
+        let index = Int(codeUnit)
+        guard seenCharacters[index] == false else { return false }
+        seenCharacters[index] = true
+    }
+    return true
+}
+
+expect(hasUniqueCharacters("banana")).to(beFalsy())
+expect(hasUniqueCharacters("abortive")).to(beTrue())
