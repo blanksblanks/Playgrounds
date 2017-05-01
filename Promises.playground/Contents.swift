@@ -9,7 +9,6 @@ enum State<Value> {
     case rejected(error: Error)
 }
 
-
 final class Promise<Value> {
     
     fileprivate var state: State<Value>
@@ -29,11 +28,10 @@ final class Promise<Value> {
     /// @escaping note: If a closure is passed as an argument to a function and it is invoked after the function returns, the closure is escaping.
     ///
     /// - Parameter resolvers: a throwing function that takes two functions
-    /// It is called immediately in the init and will resolve with either fulfill or reject
+    /// It is called immediately in tx`he init and will resolve with either fulfill or reject
     /// - Parameter fulfill: function that fulfills the promise with the passed in value
     /// - Parameter reject: function that rejects the promise with the passed in error
     init(resolvers: (_ fulfill: @escaping (Value) -> Void, _ reject: @escaping (Error) -> Void) throws -> Void) {
-        /// Implement me
         self.state = .pending
         let fulfill: (Value) -> () = { (value: Value) in
             self.updateState(state: .fulfilled(value: value))
@@ -68,7 +66,6 @@ final class Promise<Value> {
     /// - Returns: a promise with a NewValue
     /// It resolves when the promise returned from onFulfilled resolves
     public func then<NewValue>(_ onFulfilled: @escaping (Value) throws -> Promise<NewValue>) -> Promise<NewValue> {
-        /// Implement me
         return Promise<NewValue>(resolvers: {
             (fulfill: @escaping (NewValue) -> Void, reject: @escaping (Error) -> ()) in
             let doFulfill: (Value) -> Void = { (value: Value) in
@@ -103,7 +100,6 @@ final class Promise<Value> {
     /// It gets resolved with the NewValue returned from onFulfilled
     
     public func then<NewValue>(_ onFulfilled: @escaping (Value) throws -> NewValue) -> Promise<NewValue> {
-        /// Implement me
         return then({ (value: Value) -> Promise<NewValue> in
             do {
                 let newValue: NewValue = try onFulfilled(value)
@@ -123,7 +119,6 @@ final class Promise<Value> {
     /// It gets called when this Promise is rejected
     /// - Returns: a promise with a value
     public func then(_ onFulfilled: @escaping (Value) -> (), _ onRejected: @escaping (Error) -> () = { _ in }) -> Promise<Value> {
-        /// Implement me
         return Promise(resolvers: { fulfill, reject in
             let doFulfill: (Value) -> Void = { (value: Value) in
                 fulfill(value)
@@ -144,7 +139,6 @@ final class Promise<Value> {
     /// - Parameter onRejected: a function that takes an error and does nothing
     /// - Returns: `self`
     func `catch`(onRejected: @escaping (Error) -> Void) -> Promise<Value> {
-        /// Implement me
         return self
             .then({ _ in }, onRejected)
     }
@@ -245,21 +239,182 @@ extension State {
     
 }
 
-public enum SomeError : Error {
-    case unknown
+/// Errors
+enum AwfulError: Error {
+    case bad
+    case worse
+    case terrible
 }
+
+
+///
+/// Simple test example
+///
+
+var triggerError = false
 
 func passItOn(_ value: String) -> Promise<String> {
-    return Promise(value: value)
-//    return Promise(error: SomeError.unknown)
-//    return Promise { fulfill, reject in fulfill(value) }
+    if (triggerError) {
+        return Promise { fulfill, reject in reject(AwfulError.bad) }
+    }
+    return Promise { fulfill, reject in
+        print(value)
+        fulfill(value)
+    }
 }
 
-passItOn("it's snowing!").then { (value: String) -> Promise<String> in
-    print(value)
-    return passItOn(value)
-}.then { (value: String) -> () in
-    print(value.uppercased())
-}.catch { error in
-    print("boo! a wild error has appeared")
+func disemvowel(_ s: String) -> String {
+    let vowels = Set("aeiouAEIOU".characters)
+    return String(s.characters.filter { !vowels.contains($0) })
 }
+
+func runRandomExample() {
+    passItOn("will it rain today?").then { (value: String) -> Promise<String> in
+        return passItOn(value + "!")
+        }.then { (value: String) -> Promise<String> in
+            let uppercased = value.uppercased()
+            return passItOn(uppercased)
+        }.then { (value: String) -> Promise<String> in
+            let disemvoweled = disemvowel(value)
+            return passItOn(disemvoweled)
+        }.catch { error in
+            print("boo! a wild error has appeared")
+    }
+    print("\n☔️☔️☔️\n")
+
+}
+
+runRandomExample()
+
+
+/// Map
+
+let promise = Promise(value: "someString").then { string in
+    return string.characters.count
+}.then { count in
+    return count*2
+}.then { doubled in
+    return Promise(value: doubled)
+}
+
+print(promise.state)
+
+
+/// FlatMap
+
+let flatPromise = Promise<String> { fulfill, reject in
+    fulfill("hello")
+}.then { value in
+    return Promise<Int> { fulfill, reject in
+        fulfill(value.characters.count)
+    }
+}.then { value in
+    return Promise(value: value)
+}
+
+print(flatPromise.state)
+
+print("\n🌏🌎🌍\n")
+
+
+///
+/// Mock example for async downloading flow
+///
+
+/// Checks the manifest version on the backend
+///
+/// - returns: A promise with the json response when the check is done
+func checkVersion() -> Promise<[String: Any]> {
+    print("Checking version manifest")
+    return Promise(value: ["version" : "1337"])
+}
+
+/// Parses the version
+///
+/// - parameter json: the json containing the version
+/// - returns: A promise with the version, throws an error if version is not found
+func parseVersion(_ json: [String: Any]) -> Promise<String> {
+    print("Parsing the json")
+    guard let version = json["version"] as? String else {
+        return Promise(error: AwfulError.bad)
+    }
+    return Promise(value: version)
+}
+
+/// Checks whether player needs to be updated
+///
+/// - parameter remoteVersion: the latest version on the backend
+/// - returns: A promise with the version if it differs from the version stored on user defaults, throws an error if the versions are the same
+func shouldUpdatePlayer(to remoteVersion: String) -> Promise<String> {
+    print("Checking whether player needs an update")
+    let localVersion = userDefaultVersion ?? ""
+    if (localVersion != remoteVersion) {
+        return Promise(value: remoteVersion)
+    }
+    return Promise(error: AwfulError.worse)
+}
+
+/// Downloads the player
+///
+/// - parameter version: the version to download
+/// - returns: A promise with the version if it successfully downloads, throws error if download fails
+func downloadPlayer(_ version: String) -> Promise<String> {
+    print("Downloading version: \(version)")
+    let success = true
+    if (success) {
+        return Promise(value: version)
+    } else {
+        return Promise(error: AwfulError.terrible)
+    }
+}
+
+/// Send event to analytics
+///
+/// - parameter eventDescription: the eventDescription to send to analytics
+func logEvent(_ eventDescription: String) {
+    print("Logging event: \(eventDescription)")
+}
+
+var userDefaultVersion: String? = "n00b"
+func updatePlayer() {
+    checkVersion().then { json -> Promise<String> in
+        return parseVersion(json)
+    }.then { version -> Promise<String> in
+        return shouldUpdatePlayer(to: version)
+    }.then { version -> Promise<String> in
+        return downloadPlayer(version)
+    }.then { version -> Void in // ()
+        logEvent("successful update from version \(userDefaultVersion ?? "") to version \(version)")
+        userDefaultVersion = version
+    }.catch { error in
+        logEvent("failed to update due to \(error)")
+    }
+}
+
+updatePlayer()
+
+
+
+// States:
+// (image, no error)
+// (no image, error)
+// (image, error)
+// (no image, no error)
+//
+//struct User { let avatarURL: URL }
+//func requestUserInfo(userID: String, completion: (User?, NSError?) -> ())
+//func downloadImage(URL: URL, completion: (UIImage?, NSError?) -> ())
+//
+//func loadAvatar(userID: String, completion: (UIImage?, NSError?) -> ()) {
+//    requestUserInfo(userID) { user, error in
+//        if let user = user {
+//            downloadImage(user.avatarURL) { avatar, error in
+//                if let avatar = avatar { completion(avatar, nil) }
+//                else { completion(nil, error!) }
+//            }
+//        } else { completion(nil, error!) }
+//    }
+//}
+//
+
+
