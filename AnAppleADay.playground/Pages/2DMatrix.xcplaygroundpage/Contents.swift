@@ -39,5 +39,60 @@ import Foundation
  
  */
 
+func spiralCopy(matrix: [[Int]]) -> [Int] {
+    // result
+    var arr: [Int] = []
+    
+    // bounds
+    var top = 0
+    var right = matrix[0].count - 1
+    var bottom = matrix.count - 1
+    var left = 0
+    
+    // indices
+    var row = 0
+    var col = 0
+    
+    while (top <= bottom || right >= left) {
+        // traverse right
+        while (col < right) {
+            arr.append(matrix[row][col])
+            col += 1
+        }
+        top += 1
+        //traverse down
+        while (row < bottom) {
+            arr.append(matrix[row][col])
+            row += 1
+        }
+        right -= 1
+        // traverse left
+        while (col > left) {
+            arr.append(matrix[row][col])
+            col -= 1
+        }
+        bottom -= 1
+        // traverse up
+        while (row > top) {
+            arr.append(matrix[row][col])
+            row -= 1
+        }
+        left += 1
+    }
+    return arr
+}
+
+let inputMatrix  = [ [1,    2,   3,  4,    5],
+                     [6,    7,   8,  9,   10],
+                     [11,  12,  13,  14,  15],
+                     [16,  17,  18,  19,  20] ]
+
+let expectedOutput = [1, 2, 3, 4, 5, 10, 15, 20, 19, 18, 17, 16, 11, 6, 7, 8, 9, 14, 13, 12]
+
+let output = spiralCopy(matrix: inputMatrix)
+
+for i in (0..<expectedOutput.count) {
+    expect(output[i]).to(equal(expectedOutput[i]))
+}
 
 //: [Next](@next)
