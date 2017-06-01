@@ -2,6 +2,17 @@
 
 import Foundation
 
+// classic GCD
+
+func gcd(n1: Int, n2: Int) -> Int {
+    if (n2 != 0) {
+        return gcd(n1: n2, n2: n1%n2)
+    }
+    return n1
+}
+
+gcd(n1: 366, n2: 60)
+
 //
 // 5/4/17
 //
@@ -67,9 +78,7 @@ func findLongestChain() -> Int {
     return max
 }
 
-let winner = findLongestChain()
-print("Longest chain = \(winner)")
-
-// thik
+//let winner = findLongestChain()
+//print("Longest chain = \(winner)")
 
 //: [Next](@next)
