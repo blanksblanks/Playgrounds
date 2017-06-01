@@ -38,4 +38,21 @@ import Foundation
  
  */
 
+let input1 =  [1, 2, 4, 6, 3, 7, 8] // missing 5
+
+// Assumptions:
+// - only one number is missing
+// - the sequence of numbers go up by 1
+// - the sequence begins at 1
+// In that case the arithmetic sum should help: 
+// - 1+2=3, 1+2+3=6, 1+2+3+4=10 -> n*(n+1)/2
+func findMissingNumber(array: [Int]) -> Int {
+    let sum = array.reduce(0, +)
+    let n = array.count + 1
+    let expectedSum = n*(n+1)/2
+    return expectedSum - sum
+}
+
+expect(findMissingNumber(array: input1)).to(equal(5))
+
 //: [Next](@next)
